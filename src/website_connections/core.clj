@@ -1,8 +1,11 @@
 (ns website-connections.core
   (:use seesaw.core)
+  (:use seesaw.font)
   (:gen-class))
 
 (native!)
+
+(def message-to-user (label ""))
 
 (def label-count-links (label "Counted Links: "))
 
@@ -12,16 +15,31 @@
 
 (def scan-unscanned-button (button :text "scan unscanned links"))
 
+(config! message-to-user
+         :background "#f80"
+         :foreground "#333"
+         :font (font :name :monospaced :size 18))
+
+(config! [label-count-links label-hosts-in-links label-unscanned-links]
+         :font (font :name :monospaced :size 18)
+         :background "#333"
+         :foreground "#f80")
 
 (def listbox-hosts (listbox :model '("testhost")))
 
 (def add-link-button (button :text "add link"))
 
 
-(def host-panel (vertical-panel :items [add-link-button (scrollable listbox-hosts)]))
+(def host-panel (vertical-panel
+                  :items [add-link-button (scrollable listbox-hosts)]
+                  ))
 
-(def stat-panel (vertical-panel :items [label-count-links label-hosts-in-links label-unscanned-links scan-unscanned-button]
-                                ))
+(def stat-panel (vertical-panel
+                  :items [message-to-user label-count-links label-hosts-in-links label-unscanned-links scan-unscanned-button]
+                  :background "#333"
+                  :foreground "#f80"
+                  :font (font :name :monospaced :style #{:bold} :size 18)
+                  ))
 
 (def main-window (frame :title "Website connections"
                         :on-close :exit
@@ -39,8 +57,28 @@
 
 (defn new-host-created [] (do (config! listbox-hosts :model (keys @hosts))))
 
+; label-count-links
+; label-hosts-in-links
+; label-unscanned-links
+(defn create-stat-for-selected-host []
+  (let [s (selection listbox-hosts)]
+    (cond
+      (nil? s)
+      (config! message-to-user :text "  Bitte einen Host auswählen  ")
+      (not (some #(= % (str s)) (keys @hosts)))
+      (config! message-to-user :text "  Host existiert nicht.  ")
+      :else
+      (do
+        (config! message-to-user :text (format "  Statistik für %s wird generiert.  " (str s)))
+        ))))
+
 ;add a link
-(listen add-link-button :action (fn [e] (swap! links-to-scan conj (input "insert an url to scan:"))))
+(listen add-link-button :action (fn [e] (do
+                                          (swap! links-to-scan conj (input "insert an url to scan:"))
+                                          (create-stat-for-selected-host)
+                                          )))
+
+(listen listbox-hosts :selection (fn [e] (create-stat-for-selected-host)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
