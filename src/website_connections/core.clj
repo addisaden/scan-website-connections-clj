@@ -14,13 +14,19 @@
 ; { host {urls [contained-urls]} }
 (def hosts (atom '{}))
 
+(defn new-host-created [] (do (println "New Host created!")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defn get-host-url [u] {:host (.getHost (java.net.URI. u)) :url u})
 
 (defn create-host-if-not-exist [host]
   (dosync
     (if (not (some #(= % host) (keys @hosts)))
-      (swap! hosts conj { host {} })
-      )))
+      (do
+        (swap! hosts conj { host {} })
+        (new-host-created)
+        ))))
 
 (defn create-url [u, contained-links]
   (let [umap (get-host-url u)]
@@ -41,6 +47,8 @@
                              )))
     ))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (doseq [i (range 10)]
   (.start (Thread. (fn []
                      (loop []
@@ -49,17 +57,23 @@
                          (let [c (atom nil)]
                            (dosync
                              (reset! c (first @links-to-scan))
-                             (if (and (nil? @c) (link-scanned? @c))
+                             (cond
+                               (nil? @c)
                                (reset! c nil)
+                               (link-scanned? @c)
+                               (reset! c nil)
+                               :else
                                (do
                                  (swap! links-scanned conj @c)
                                  (swap! links-to-scan rest)
                                  )))
-                           (if (not (nil? c))
+                           (if (not (nil? @c))
                              (create-url @c (get-links @c))
                              )))
                        (recur)
                        )))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn go-test [u]
   (swap! links-to-scan conj u))
