@@ -1,6 +1,6 @@
-(defproject website-connections "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
+(defproject website-connections "0.1.0"
+  :description "Scan Websites for Connections between hosts"
+  :url "https://github.com/addisaden/scan-website-connections-clj"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.5.1"]

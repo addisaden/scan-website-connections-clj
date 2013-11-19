@@ -18,6 +18,8 @@
 
 (def scan-unscanned-button (button :text "scan unscanned links"))
 
+(def clear-button (button :text "RESET"))
+
 (config! message-to-user
          :background "#f80"
          :foreground "#333"
@@ -34,7 +36,7 @@
 
 
 (def host-panel (vertical-panel
-                  :items [add-link-button (scrollable listbox-hosts)]
+                  :items [add-link-button clear-button (scrollable listbox-hosts)]
                   ))
 
 (def stat-panel (vertical-panel
@@ -66,7 +68,7 @@
                                    ))))
 (def links-scanned (atom []))
 ; { host {urls [contained-urls]} }
-(def hosts (atom '{}))
+(def hosts (atom {}))
 
 (defn new-host-created [] (do (config! listbox-hosts :model (sort (keys @hosts)))))
 
@@ -117,6 +119,13 @@
               (config! label-unscanned-links :text (format "Counted unscanned links: %s" all-un-l))
               (config! label-hosts-in-links :model s-hosts)
               )))))))
+
+(listen clear-button :action (fn [e] (do
+                                       (reset! links-to-scan '())
+                                       (reset! links-scanned [])
+                                       (reset! hosts {})
+                                       (new-host-created)
+                                       )))
 
 ;add a link
 (listen add-link-button :action (fn [e] (do
