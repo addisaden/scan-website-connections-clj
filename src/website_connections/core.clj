@@ -41,10 +41,28 @@
                              )))
     ))
 
+(doseq [i (range 10)]
+  (.start (Thread. (fn []
+                     (loop []
+                       (if (empty? @links-to-scan)
+                         (Thread/sleep 1)
+                         (let [c (atom nil)]
+                           (dosync
+                             (reset! c (first @links-to-scan))
+                             (if (and (nil? @c) (link-scanned? @c))
+                               (reset! c nil)
+                               (do
+                                 (swap! links-scanned conj @c)
+                                 (swap! links-to-scan rest)
+                                 )))
+                           (if (not (nil? c))
+                             (create-url @c (get-links @c))
+                             )))
+                       (recur)
+                       )))))
+
 (defn go-test [u]
-  (let [l (get-links u)]
-    (create-url u l)
-    ))
+  (swap! links-to-scan conj u))
 
 (defn -main
   [& args]
