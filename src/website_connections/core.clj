@@ -1,6 +1,7 @@
 (ns website-connections.core
   (:use seesaw.core)
   (:use seesaw.font)
+  (:require clojure.string)
   (:gen-class))
 
 (native!)
@@ -9,7 +10,7 @@
 
 (def label-count-links (label "Counted Links: "))
 
-(def label-hosts-in-links (label "Hosts: "))
+(def label-hosts-in-links (listbox :model '()))
 
 (def label-unscanned-links (label "Counted unscanned links: "))
 
@@ -35,7 +36,11 @@
                   ))
 
 (def stat-panel (vertical-panel
-                  :items [message-to-user label-count-links label-hosts-in-links label-unscanned-links scan-unscanned-button]
+                  :items [message-to-user
+                          label-count-links
+                          label-unscanned-links
+                          scan-unscanned-button
+                          (scrollable label-hosts-in-links)]
                   :background "#333"
                   :foreground "#f80"
                   :font (font :name :monospaced :style #{:bold} :size 18)
@@ -57,6 +62,24 @@
 
 (defn new-host-created [] (do (config! listbox-hosts :model (keys @hosts))))
 
+(defn links-of-host-element [helem]
+  (let [result (atom '())]
+    (do
+      (swap! result #(apply (partial conj %) (keys helem)))
+      (doseq [i (keys helem)]
+        (if (not (empty? (get helem i)))
+          (swap! result #(apply (partial conj %) (get helem i)))))
+      (set @result))))
+
+(defn hosts-of-host-element [helem]
+  (let [all-links (links-of-host-element helem)
+        hmap (map #(.getHost (java.net.URI. %)) all-links)]
+    (vec (set hmap))
+    ))
+
+(defn unscanned-urls-of-host-element [helem]
+  (filter #(some (fn [i] (not (= i %))) @links-scanned) (links-of-host-element helem)))
+
 ; label-count-links
 ; label-hosts-in-links
 ; label-unscanned-links
@@ -69,8 +92,20 @@
       (config! message-to-user :text "  Host existiert nicht.  ")
       :else
       (do
-        (config! message-to-user :text (format "  Statistik für %s wird generiert.  " (str s)))
-        ))))
+        (config! message-to-user :text (format "  %s  " (.toUpperCase (str s))))
+        (let [helem (@hosts (str s))]
+          (println helem)
+          (if (empty? helem)
+            (config! message-to-user :text "Host is empty!")
+            (let [
+                  all-l (count (links-of-host-element helem))
+                  all-un-l (count (unscanned-urls-of-host-element helem))
+                  s-hosts (hosts-of-host-element helem)
+                  s-hosts (if (empty? s-hosts) [] s-hosts)]
+              (config! label-count-links :text (format "Counted Links: %s" all-l))
+              (config! label-unscanned-links :text (format "Counted unscanned links: %s" all-un-l))
+              (config! label-hosts-in-links :model s-hosts)
+              )))))))
 
 ;add a link
 (listen add-link-button :action (fn [e] (do
@@ -79,6 +114,21 @@
                                           )))
 
 (listen listbox-hosts :selection (fn [e] (create-stat-for-selected-host)))
+
+; scan-unscanned-button
+
+(listen scan-unscanned-button :action (fn [e] (let [s (selection listbox-hosts)]
+                                                (cond
+                                                  (nil? s)
+                                                  (config! message-to-user :text "  Bitte einen Host auswählen  ")
+                                                  (not (some #(= % (str s)) (keys @hosts)))
+                                                  (config! message-to-user :text "  Host existiert nicht.  ")
+                                                  (not (empty? (unscanned-urls-of-host-element (@hosts (str s)))))
+                                                  (swap! links-to-scan
+                                                         #(apply
+                                                            (partial conj %)
+                                                            (unscanned-urls-of-host-element (@hosts (str s)))
+                                                            ))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -97,19 +147,20 @@
     (dosync
       (create-host-if-not-exist (:host umap))
       (swap! hosts update-in [(:host umap)] conj {u (vec contained-links)})
+      (swap! hosts update-in [(:host umap) u] set)
+      (swap! hosts update-in [(:host umap) u] vec)
       )))
 
 (defn link-scanned? [u]
   (find @links-scanned u))
 
 (defn get-links [u]
-  (let [website-source (slurp u)]
-    (try
-      (re-seq #"(?im)https?:\/\/[^\s\"\']+" website-source)
-      (catch Exception e (do (println "Error on url:" (.getMessage e))
-                             '()
-                             )))
-    ))
+  (try
+    (re-seq #"(?im)https?:\/\/[a-z0-9\.\/]+" (slurp u))
+    (catch Exception e (do (config! message-to-user :text (format "  error on %s  " u))
+                           (swap! links-scanned conj u)
+                           '()
+                           ))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -130,10 +181,15 @@
                                (do
                                  (swap! links-scanned conj @c)
                                  (swap! links-to-scan rest)
+                                 (config! message-to-user :text (format "  scanne %s  " @c))
                                  )))
                            (if (not (nil? @c))
-                             (create-url @c (get-links @c))
-                             )))
+                             (try
+                               (create-url @c (get-links @c))
+                               (catch Exception e (do
+                                                    (create-url @c '())
+                                                    (config! message-to-user :text (format"Error on %s" @c))))
+                               ))))
                        (recur)
                        )))))
 
