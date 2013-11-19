@@ -37,7 +37,10 @@
 ; { host {urls [contained-urls]} }
 (def hosts (atom '{}))
 
-(defn new-host-created [] (do (println "New Host created!")))
+(defn new-host-created [] (do (config! listbox-hosts :model (keys @hosts))))
+
+;add a link
+(listen add-link-button :action (fn [e] (swap! links-to-scan conj (input "insert an url to scan:"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
