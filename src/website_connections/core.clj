@@ -60,7 +60,7 @@
 ; { host {urls [contained-urls]} }
 (def hosts (atom '{}))
 
-(defn new-host-created [] (do (config! listbox-hosts :model (keys @hosts))))
+(defn new-host-created [] (do (config! listbox-hosts :model (sort (keys @hosts)))))
 
 (defn links-of-host-element [helem]
   (let [result (atom '())]
@@ -94,7 +94,7 @@
       (do
         (config! message-to-user :text (format "  %s  " (.toUpperCase (str s))))
         (let [helem (@hosts (str s))]
-          (println helem)
+          ; (println helem)
           (if (empty? helem)
             (config! message-to-user :text "Host is empty!")
             (let [
