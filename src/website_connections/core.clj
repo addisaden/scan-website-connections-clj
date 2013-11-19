@@ -190,7 +190,7 @@
   (.start (Thread. (fn []
                      (loop []
                        (if (empty? @links-to-scan)
-                         (Thread/sleep 1)
+                         (Thread/sleep 1000)
                          (let [c (atom nil)]
                            (dosync
                              (reset! c (first @links-to-scan))
