@@ -6,6 +6,8 @@
 
 (native!)
 
+(def how-many-to-scan (label "0"))
+
 (def message-to-user (label ""))
 
 (def label-count-links (label "Counted Links: "))
@@ -21,12 +23,12 @@
          :foreground "#333"
          :font (font :name :monospaced :size 18))
 
-(config! [label-count-links label-hosts-in-links label-unscanned-links]
+(config! [how-many-to-scan label-count-links label-hosts-in-links label-unscanned-links]
          :font (font :name :monospaced :size 18)
          :background "#333"
          :foreground "#f80")
 
-(def listbox-hosts (listbox :model '("testhost")))
+(def listbox-hosts (listbox :model '()))
 
 (def add-link-button (button :text "add link"))
 
@@ -36,7 +38,8 @@
                   ))
 
 (def stat-panel (vertical-panel
-                  :items [message-to-user
+                  :items [how-many-to-scan
+                          message-to-user
                           label-count-links
                           label-unscanned-links
                           scan-unscanned-button
@@ -48,14 +51,19 @@
 
 (def main-window (frame :title "Website connections"
                         :on-close :exit
-                        :minimum-size [640 :by 480]
+                        :minimum-size [800 :by 480]
                         :content (left-right-split
                                    host-panel
                                    stat-panel
                                    :divider-location 1/4)
                         ))
 
-(def links-to-scan (atom '()))
+(def links-to-scan (atom '()
+                         :validator
+                         (fn [i] (do
+                                   (text! how-many-to-scan (format "%s Links in der Warteschleige." (count i)))
+                                   true
+                                   ))))
 (def links-scanned (atom []))
 ; { host {urls [contained-urls]} }
 (def hosts (atom '{}))
@@ -73,7 +81,10 @@
 
 (defn hosts-of-host-element [helem]
   (let [all-links (links-of-host-element helem)
-        hmap (map #(.getHost (java.net.URI. %)) all-links)]
+        hmap (map #(try (.getHost (java.net.URI. %))
+                         (catch Exception e ""))
+                  all-links)
+        hmap (filter #(not (empty? %)) hmap)]
     (vec (set hmap))
     ))
 
@@ -132,7 +143,9 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn get-host-url [u] {:host (.getHost (java.net.URI. u)) :url u})
+(defn get-host-url [u] {:host (try
+                                (.getHost (java.net.URI. u))
+                                (catch Exception e "")) :url u})
 
 (defn create-host-if-not-exist [host]
   (dosync
@@ -156,7 +169,7 @@
 
 (defn get-links [u]
   (try
-    (re-seq #"(?im)https?:\/\/[a-z0-9\.\/]+" (slurp u))
+    (re-seq #"(?im)https?:\/\/[^\"\s\'<>&]+" (slurp u))
     (catch Exception e (do (config! message-to-user :text (format "  error on %s  " u))
                            (swap! links-scanned conj u)
                            '()
@@ -185,7 +198,9 @@
                                  )))
                            (if (not (nil? @c))
                              (try
-                               (create-url @c (get-links @c))
+                               (do
+                                 (create-url @c (get-links @c))
+                                 (config! message-to-user :text (format "  gescannt %s  " @c)))
                                (catch Exception e (do
                                                     (create-url @c '())
                                                     (config! message-to-user :text (format"Error on %s" @c))))
