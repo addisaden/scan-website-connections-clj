@@ -2,11 +2,34 @@
   (:use seesaw.core)
   (:gen-class))
 
+(native!)
 
+(def label-count-links (label "Counted Links: "))
+
+(def label-hosts-in-links (label "Hosts: "))
+
+(def label-unscanned-links (label "Counted unscanned links: "))
+
+(def scan-unscanned-button (button :text "scan unscanned links"))
+
+
+(def listbox-hosts (listbox :model '("testhost")))
+
+(def add-link-button (button :text "add link"))
+
+
+(def host-panel (vertical-panel :items [add-link-button (scrollable listbox-hosts)]))
+
+(def stat-panel (vertical-panel :items [label-count-links label-hosts-in-links label-unscanned-links scan-unscanned-button]
+                                ))
 
 (def main-window (frame :title "Website connections"
                         :on-close :exit
                         :minimum-size [640 :by 480]
+                        :content (left-right-split
+                                   host-panel
+                                   stat-panel
+                                   :divider-location 1/4)
                         ))
 
 (def links-to-scan (atom '()))
