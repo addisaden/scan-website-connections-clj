@@ -91,7 +91,7 @@
     ))
 
 (defn unscanned-urls-of-host-element [helem]
-  (filter #(some (fn [i] (not (= i %))) @links-scanned) (links-of-host-element helem)))
+  (filter #(not (some (fn [i] (= i %)) @links-scanned)) (links-of-host-element helem)))
 
 ; label-count-links
 ; label-hosts-in-links
